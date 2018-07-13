@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"log"
 	"github.com/trust-net/go-sdb-node/api"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/p2p/discover"
 )
 
 type bootNodeRequest struct {
@@ -16,33 +18,43 @@ type bootNodeResponse struct {
 	Url 		string 			`json:"url,omitempty"`
 }
 
-var running map[string]string
-
-func init() {
-	running = make(map[string]string)
+type BootNodesHandler struct {
+	addr string
+	running map[string]*discover.Table
 }
 
-func GetBootnodes (r *http.Request) (api.ApiResponse, api.Error) {
+func NewBootNodesHandler(addr string) *BootNodesHandler {
+	return &BootNodesHandler{
+		addr: addr,
+		running: make(map[string]*discover.Table),
+	}
+}
+
+func (h *BootNodesHandler) GetBootnodes(r *http.Request) (api.ApiResponse, api.Error) {
 	log.Printf("request to get all bootnodes")
 	list := make([]bootNodeResponse,0)
-	for id,url := range running {
-		list = append(list, bootNodeResponse{ID: id, Url: url})
+	for id,node := range h.running {
+		list = append(list, bootNodeResponse{ID: id, Url: node.Self().String()})
 	}
 	return list, nil
 }
 
-func PostBootnodesStart (r *http.Request) (api.ApiResponse, api.Error) {
+func (h *BootNodesHandler) PostBootnodesStart(r *http.Request) (api.ApiResponse, api.Error) {
 	var req bootNodeRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || len(req.ID) == 0 {
 		log.Printf("ERROR: Failed to parse request body '%s'", err)
 		return nil, api.ApiError(api.ERR_BAD_REQUEST,"bad request")
 	} else {
-		log.Printf("request to start bootnode for network: %s", req.ID)
-		if _, found := running[req.ID]; !found {
-			// one fake success response
-			url := "boot://" + req.ID + ".fake.url"
-			running[req.ID] = url
-			return bootNodeResponse{ID: req.ID, Url: url}, nil
+		log.Printf("%s -- request to start bootnode for network: %s", r.Host, req.ID)
+		if _, found := h.running[req.ID]; !found {
+			// start a new boot node
+			if node, err := h.startNewNode(); err == nil {
+				h.running[req.ID] = node
+				return bootNodeResponse{ID: req.ID, Url: node.Self().String()}, nil
+			} else {
+				log.Printf("ERROR: Failed to create new boot node '%s'", err)
+				return nil, api.ApiError(api.ERR_FAILED, "failed to create boot node")
+			}
 		} else {
 			// there is already a boot node for specified network ID
 			return nil, api.ApiError(api.ERR_CONFLICT, "boot node already exists")		
@@ -50,16 +62,35 @@ func PostBootnodesStart (r *http.Request) (api.ApiResponse, api.Error) {
 	}
 }
 
-func PostBootnodesStop (r *http.Request) (api.ApiResponse, api.Error) {
+func (h *BootNodesHandler) startNewNode() (*discover.Table, error) {
+	if nodeKey, err := crypto.GenerateKey(); err != nil {
+		return nil, err
+	} else {
+		if table, err := discover.ListenUDP(nodeKey, h.addr + ":0", nil, "", nil); err != nil {
+			return nil, err
+		} else {
+			return table, nil
+		}
+	}
+}
+
+func (h *BootNodesHandler) stopRunningNode(table *discover.Table) {
+	if table != nil {
+		table.Close()
+	}
+}
+
+func (h *BootNodesHandler) PostBootnodesStop(r *http.Request) (api.ApiResponse, api.Error) {
 	var req bootNodeRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || len(req.ID) == 0 {
 		log.Printf("ERROR: Failed to parse request body '%s'", err)
 		return nil, api.ApiError(api.ERR_BAD_REQUEST,"bad request")
 	} else {
 		log.Printf("request to stop bootnode for network: %s", req.ID)
-		if _, found := running[req.ID]; found {
-			// one fake success response
-			delete(running, req.ID)
+		if node, found := h.running[req.ID]; found {
+			// stop running node
+			h.stopRunningNode(node)
+			delete(h.running, req.ID)
 			return nil, nil
 		} else {
 			// there was no already running boot node
