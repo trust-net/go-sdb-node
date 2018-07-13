@@ -16,10 +16,19 @@ type bootNodeResponse struct {
 	Url 		string 			`json:"url,omitempty"`
 }
 
-var running map[string]struct{}
+var running map[string]string
 
 func init() {
-	running = make(map[string]struct{})
+	running = make(map[string]string)
+}
+
+func GetBootnodes (r *http.Request) (api.ApiResponse, api.Error) {
+	log.Printf("request to get all bootnodes")
+	list := make([]bootNodeResponse,0)
+	for id,url := range running {
+		list = append(list, bootNodeResponse{ID: id, Url: url})
+	}
+	return list, nil
 }
 
 func PostBootnodesStart (r *http.Request) (api.ApiResponse, api.Error) {
@@ -31,10 +40,11 @@ func PostBootnodesStart (r *http.Request) (api.ApiResponse, api.Error) {
 		log.Printf("request to start bootnode for network: %s", req.ID)
 		if _, found := running[req.ID]; !found {
 			// one fake success response
-			running[req.ID] = struct{}{}
-			return bootNodeResponse{ID: req.ID, Url: "fake url: " + req.ID}, nil
+			url := "boot://" + req.ID + ".fake.url"
+			running[req.ID] = url
+			return bootNodeResponse{ID: req.ID, Url: url}, nil
 		} else {
-			// there is already a boot node running
+			// there is already a boot node for specified network ID
 			return nil, api.ApiError(api.ERR_CONFLICT, "boot node already exists")		
 		}
 	}

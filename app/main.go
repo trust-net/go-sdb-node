@@ -18,7 +18,8 @@ func main() {
 	r := mux.NewRouter()
 	r.Path("/ping").Methods("GET").Handler(api.NewHandler(HealthCheck))
 	r.Path("/bootnodes/start").Methods("POST").Handler(api.NewHandler(bootnodes.PostBootnodesStart))
-	r.Path("/bootnodes/start").Methods("DELETE").Handler(api.NewHandler(bootnodes.PostBootnodesStop))
+	r.Path("/bootnodes/stop").Methods("POST").Handler(api.NewHandler(bootnodes.PostBootnodesStop))
+	r.Path("/bootnodes").Methods("GET").Handler(api.NewHandler(bootnodes.GetBootnodes))
     r.Use(requestLogger)
     srv := &http.Server{
         Handler:      r,

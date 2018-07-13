@@ -34,8 +34,12 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				json.NewEncoder(w).Encode(resp)
 				break
 			case "POST":
-				w.WriteHeader(201)
-				json.NewEncoder(w).Encode(resp)
+				if resp != nil {
+					w.WriteHeader(201)
+					json.NewEncoder(w).Encode(resp)
+				} else {
+					w.WriteHeader(202)
+				}
 				break
 			case "PUT":
 				w.WriteHeader(202)
