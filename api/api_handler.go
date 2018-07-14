@@ -31,7 +31,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		switch method {
 			case "GET":
 				w.WriteHeader(200)
-				json.NewEncoder(w).Encode(resp)
+				if resp != nil {
+					json.NewEncoder(w).Encode(resp)
+				}
 				break
 			case "POST":
 				if resp != nil {
@@ -43,7 +45,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				break
 			case "PUT":
 				w.WriteHeader(202)
-				json.NewEncoder(w).Encode(resp)
+				if resp != nil {
+					json.NewEncoder(w).Encode(resp)
+				}
 				break
 			case "DELETE":
 				if resp != nil {

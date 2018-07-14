@@ -27,11 +27,11 @@ func (err *apiError) ErrCode() int {
 
 const (
 	ERR_BAD_REQUEST = 400
+	ERR_NOT_FOUND = 404
 	ERR_METHOD_NOT_ALLOWED = 405
 	ERR_CONFLICT = 409
 	ERR_FAILED = 500
 	ERR_UNAVILABLE = 503
-	ERR_NOT_FOUND = 404
 )
 
  var ErrMsgs map[int]string
